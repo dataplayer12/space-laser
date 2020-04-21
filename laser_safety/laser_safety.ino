@@ -1,6 +1,9 @@
 #include<Wire.h>
 //#define debug_mode
 
+#define notify_led PD7 //pin #7 in arduino uno numbering convention
+#define laser_switch PB5 //pin #13 in arduino uno numbering convention
+
 const int8_t MPUaddress=0x68; //I2C address of MPU-6050
 
 int16_t acX=0;
@@ -32,12 +35,10 @@ int ac_threshold=10000;
 int16_t driftX,driftY,driftZ;
 float omegaX,omegaY,omegaZ;
 
-const uint8_t notify_led = 7;
-const uint8_t laser_switch = 13;
-
 void setup() {
-pinMode(notify_led,OUTPUT);
-pinMode(laser_switch,OUTPUT);
+
+DDRD |= (1<<notify_led); //enable output
+DDRB |= (1<<laser_switch); //enable output
 
 #ifdef debug_mode
   Serial.begin(115200);
@@ -75,8 +76,10 @@ if (moved) {
 }
 
 void turn_on_laser(){
-  digitalWrite(laser_switch,HIGH);
-  digitalWrite(notify_led,LOW);
+  //digitalWrite(laser_switch,HIGH);
+  PORTB |= (1<< laser_switch);
+  //digitalWrite(notify_led,LOW);
+  PORTD &= ~(1<< notify_led);
   #ifdef debug_mode
     Serial.println("Turned on laser");
   #endif
