@@ -6,6 +6,9 @@ from collections import deque
 import numpy as np
 import queue
 import time
+import struct
+import pdb
+import os
 
 class MindWave(object):
 
@@ -34,22 +37,19 @@ class MindWave(object):
         self.bytesreceived = 0
 
     def readbyte(self):
-        if self.file:
-            x = self.data[self.bytesreceived]
+        #if self.file:
+        #    x = self.data[self.bytesreceived]
             # print(x)
-        else:
-            x = self.srl.read(1).encode("hex")
-            print(x==0xaa, x)
+        #else:
+        x = self.srl.read(1).encode("hex") #.decode("hex")
+        if self.file:
+            self.file.write(str(x)+'\n')
+            #print(x==0xaa, x)
         self.bytesreceived += 1
         return x
 
     def initgraph(self):
-        self.plotax.set_xlim(60, 0)
-        self.plotax.set_ylim(-1, 256)
-        self.plotax.set_title('MindWave Attention')
-        self.plotax.set_ylabel('Attention')
-        self.plotax.set_xlabel('Seconds');
-        self.plotax.grid(color='gray', linestyle='dotted', linewidth=1)
+        
 
         self.plotline.set_data([],[])
         self.fill_lines=self.plotax.fill_between(self.plotline.get_xdata(),50,0)
@@ -64,6 +64,10 @@ class MindWave(object):
         #self.plotline.set_data(self.x_list,self.attentionlist)
         self.plotax.clear()
         self.plotax.plot(self.x_list,self.attentionlist,'r')
+        self.fftax.clear()
+        self.fftax.plot(self.fft_freq,self.raw_fft,'b')
+        self.plotax.set_ylim(-32768, 32768)
+        self.fftax.set_ylim(0.,1.)
         #fill_lines=self.plotax.fill_between(self.x_list,0,self.attentionlist, facecolor='cyan', alpha=0.50)
         #if self.bytesreceived%100<10:
         #plt.pause(0.05)
@@ -74,15 +78,105 @@ class MindWave(object):
         #return [self.plotline] + [fill_lines]
 
     def setup_graph(self):
-        self.fig = plt.figure(figsize=(8,4))
-        plt.subplots_adjust(top=0.95, bottom=0.20)
-        self.fig.set_facecolor('#F2F1F0')
-        self.fig.canvas.set_window_title('MindWave Attention')
-        self.plotax = plt.subplot2grid((1,1), (0,0), rowspan=2, colspan=1)
+        self.fig = plt.figure()#figsize=(8,4)
+        #plt.subplots_adjust(top=0.95, bottom=0.20)
+        #self.fig.set_facecolor('#F2F1F0')
+        #self.fig.canvas.set_window_title('MindWave Attention')
+        self.plotax = plt.subplot2grid((2,2), (0,0), rowspan=1, colspan=2)
+        self.fftax = plt.subplot2grid((2,2), (1,0), rowspan=1, colspan=2)
         self.plotline, = self.plotax.plot([],[])
+        self.fftline, = self.fftax.plot([],[])
         self.attentionlist=[100]*self.maxplot
+        #self.plotax.set_xlim(60, 0)
+        self.plotax.set_ylim(-32768, 32768)
+        self.plotax.set_title('MindWave Attention')
+        self.plotax.set_ylabel('Attention')
+        #self.plotax.set_xlabel('Seconds');
+        self.plotax.grid(color='gray', linestyle='dotted', linewidth=1)
 
-    def start(self,plot=False):
+    def start_new(self,file_handle=None):
+        self.file=file_handle
+        self.setup_graph()
+        self.waitforsync()
+        plt.ion()
+        plt.show()
+        while True:
+            # packet synced by 0xaa 0xaa
+            try:
+                packet_length = int(self.readbyte())
+            except ValueError:
+                continue
+            packet_code = self.readbyte()
+            if packet_code == 'd4':
+                # standing by
+                self.state = "standby"
+            elif packet_code == 'd0':
+                self.state = "connected"
+            elif packet_code == 'd2':
+                #data_len = self.readbyte()
+                #headset_id = self.readbyte()
+                #headset_id += self.readbyte()
+                self.dongle_state = "disconnected"
+            else:
+                left = packet_length - 2
+                while left>0:
+                    if packet_code=='aa':
+                        continue
+                    elif packet_code =='80': # raw value
+                        #print('Found raw value')
+                        row_length = self.readbyte()
+                        a = self.readbyte()
+                        b = self.readbyte()
+                        value = struct.unpack("<h",a[1]+b[1])[0] #is broken #chr(b)+
+                        self.rawvalue=value
+                        self.attentionlist.append(value)
+                        left -= 2
+                    elif packet_code == '02': # Poor signal
+                        print('Found poor signal')
+                        a = self.readbyte()
+                        left -= 1
+                    elif packet_code == '04': # Attention (eSense)
+                        print('Found attention')
+                        a = self.readbyte()
+                        # if int(a)>0:
+                        #     v = struct.unpack("b",chr(a))[0]
+                        #     if 0 < v <= 100:
+                        #         self.dispatch_data("attention", v)
+                        left-=1
+                    elif packet_code == '05': # Meditation (eSense)
+                        print('Found meditation')
+                        #a = yield
+                        # if a>0:
+                        #     v = struct.unpack("b",chr(a))[0]
+                        #     if 0 < v <= 100:
+                        #         self.dispatch_data("meditation", v)
+                        left-=1
+                    elif packet_code == '16': # Blink Strength
+                        print('Found blink strength')
+                        quit()
+                        #self.current_blink_strength = yield
+                        left-=1
+                    elif packet_code == '83':
+                        print('Found unexpected')
+                    #     vlength = yield
+                    #     self.current_vector = []
+                    #     for row in range(8):
+                    #         a = yield
+                    #         b = yield
+                    #         c = yield
+                    #         value = a*255*255+b*255+c
+                    #     left -= vlength
+                    #     self.dispatch_data("bands", self.current_vector)
+                    # packet_code = yield
+                    else:
+                        print('Unknown packet code {}'.format(packet_code))
+                        pass # sync failed
+            self.updategraph()
+            self.waitforsync()
+
+
+    def start(self,file_handle=None):
+        self.file=file_handle
         self.setup_graph()
         #self.initgraph()
         self.waitforsync()
@@ -90,7 +184,6 @@ class MindWave(object):
         #            init_func=self.initgraph,  interval=20, blit=True)
         plt.ion()
         plt.show()
-
         while True:
             #print('in while loop')
             b1 = self.readbyte()
@@ -98,15 +191,20 @@ class MindWave(object):
             b3 = self.readbyte()
 
             if b1 == '04' and b2 == '80' and b3 == '02':
-                self.attention = int(self.readbyte(), 16)
-                self.rawvalue = int(self.readbyte(), 16)
-                self.signal = int(self.readbyte(), 16)
+                #self.attention = int(self.readbyte(), 16)
+                row_length=int(self.readbyte(), 16)
+                a = int(self.readbyte(), 16)
+                b = int(self.readbyte(), 16)
+                value = struct.unpack("<h",chr(a)+chr(b))[0]
 
                 x = self.readbyte()  # waste two
                 x = self.readbyte()  # waste two
-                #print(self.attention, self.rawvalue, self.signal)
-                self.attentionlist.append(self.attention)
-                self.datalist.append(self.rawvalue)
+                self.attentionlist.append(value)
+                self.datalist.append(value)
+                raw_fft = np.fft.rfft(np.array(self.datalist))
+                fft_amp = np.abs(raw_fft).astype(np.float32)
+                self.raw_fft = np.log10(fft_amp)[1:] / np.log10(fft_amp.max())
+                self.fft_freq=np.linspace(0,100,self.raw_fft.shape[0])
                 self.updategraph()
                 #plt.show()
                 #print(self.attentionlist)
@@ -149,6 +247,13 @@ try:
     dev = MindWave('/dev/tty.MindWaveMobile-SerialPo', 57600)
     print('Object created')
     #dev=MindWave(file='collected_data.txt')
-    dev.start(plot=True)
+    #pdb.set_trace()
+    #
+    txtfile='collected_data{}.txt'.format(len(os.listdir('./'))+1)
+    with open(txtfile,'w') as f:
+        print('Logging to {}'.format(txtfile))
+        dev.start(f)
+        #dev.start_new(f)
+
 finally:
     dev.end()
