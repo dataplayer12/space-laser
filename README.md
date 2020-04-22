@@ -51,19 +51,22 @@ I ended up using two ATMega chips: one for minitoring the motion and one for com
 Here is what my PCB looks like.
 
 ![Front Side](https://github.com/dataplayer12/laser-comm/blob/master/images/pcb.png)
+The PCB design files are in `pcb` directory in Eagle format. The gerber files are in a `zip` file and can be uploaded to your PCB provider's website to be manufactured. I ordered mine from JLCPCB.
 
 ## Holder
-Here is the 3D printed holder I designed.
+Here is the 3D design for the holder. The base holds the laser using the M3 size mounting holes while the pillars hold the PCB (also via M3 screws). The center of the base has mounting hole for a quarter-inch tripod screw. So, the whole laser assmebly can be mounted on a tripod, making it easier to aim the beam anywhere.
 
 ![Holder](https://github.com/dataplayer12/laser-comm/blob/master/images/holder.png)
 
+The STL file is in the `holder` directory. I printed the holder with PLA using typical parameters for this material at 15% infill on a FlashForge printer.
+
 ## Code
 - The code for the two arduinos is in `laser_safety` and `laser_transmitter` directories.
-- The PCB design files are in `pcb` directory in Eagle format.
-- The script `stream_live_video.py` can be used to transmit pictures taken from the webcam on your computer to the laser (using a bluetooth module). Since we are using a baud rate of 9600, we can't transmit live video in real time, but it's kind of cool to stream snapshots of your weekend party into outer space.
-- The directory `mindwave` contains some experimental scripts to send EEG data (brain waves) from a NeuroSky Mindwave 2 to the laser. This allows you to attach an EEG reader to your head and transmit your bran waves in real time into outer space! This part of the project is still under development.
+- The script `stream_live_video.py` can be used to transmit pictures taken from the webcam on your computer to the laser (using a bluetooth module). Since we are using a baud rate of 9600, we can't transmit the video in real time, but it's kind of cool to stream snapshots of your weekend party into outer space.
+- The directory `mindwave` contains some experimental scripts to send EEG data (brain waves) from a NeuroSky Mindwave 2 to the laser. This allows you to attach an EEG reader to your head and transmit your brain waves into outer space! This part of the project is still under development.
 
 ## Results
+It works!
 
 ### Hailing the Chandrayaan-2 lander
 Here I am sending a sentence "Hello Vikram! Please respond" to the approximate location where India's Chandrayaan-2 moon mission hard-landed. It did not respond.
