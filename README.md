@@ -1,4 +1,4 @@
-# laser-comm
+# Space Laser
 Interstellar communications with a laser and arduino
 
 ## Basic Idea
